@@ -9,7 +9,8 @@ function startApp() {
         webPreferences: {
             devTools: true,
             nodeIntegration: true,
-            contextIsolation: false
+            contextIsolation: false,
+            enableRemoteModule: true
         }
     });
     const devtools = new BrowserWindow()

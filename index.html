@@ -5,6 +5,19 @@
         <title>OmoTool</title>
         <link rel="Stylesheet" href="roboto.css">
         <style>
+            button.btn {
+                padding: 8px 16px;
+                background: hsl(200, 85%, 35%);
+                border: none;
+                color: white;
+            }
+            button {
+                cursor: pointer;
+            }
+            button.btn:disabled {
+                background: #444;
+                cursor: not-allowed;
+            }
             body {
                 margin: 0;
                 overflow: hidden;
@@ -51,6 +64,34 @@
                     transform: scale(1.0);
                 }
             }
+            .start-screen, .before-start {
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+            }
+            .path-picker {
+                background: #444;
+                width: 600px;
+                display: grid;
+                grid-template-columns: 1fr 36px;
+                grid-template-rows: 36px;
+            }
+            #pick-path-button {
+                width: 36px;
+                height: 36px;
+                line-height: 36px;
+                text-align: center;
+                background: hsl(200, 85%, 35%);
+                color: white;
+                border: none;
+            }
+            #game-path {
+                line-height: 36px;
+                height: 36px;
+            }
         </style>
     </head>
     <body>
@@ -62,13 +103,59 @@
                 <div class="bounce3"></div>
             </div>
         </div>
+        <div class="start-screen" style="display: none;">
+            <h1>Confirm game location</h1>
+            <div class="path-picker">
+                <span id="game-path">C:\Frog\Cat</span>
+                <button class="material-icons" id="pick-path-button" onclick="chPath();">folder</button>
+            </div>
+            <button class="btn" style="margin-top: 16px;" disabled>
+                Continue
+            </button>
+        </div>
+        <div class="before-start" style="display: none;">
+            <h1>Inspecting your copy of the game</h1>
+            <div class="spinner">
+                <div class="bounce1"></div>
+                <div class="bounce2"></div>
+                <div class="bounce3"></div>
+            </div>
+        </div>
         <script>
             const rafResolve = () => new Promise(resolve => requestAnimationFrame(resolve));
             const windows = require('windows');
+            const electron = require('electron');
             const path = require('path');
             const fs = require('fs');
             const vdf = require('@node-steam/vdf');
             const binaryVdf = require('binary-vdf');
+
+            let gameFound = false;
+            let gamePath = "";
+
+            async function isOmori(location) {
+                let requiredFiles = [
+                    "www/data/System.KEL",
+                    "www/index.html",
+                    "OMORI.exe",
+                    "www/js/plugins/Omori BASE.OMORI",
+                    "www/img/characters/$DW_AUBREY_STUMP.rpgmvp"
+                ];
+
+                for (let a of requiredFiles) {
+                    if (!fs.existsSync(path.join(location, a))) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            async function continueClicked() {
+                document.querySelector(".getting-ready").style = "display: none";
+                document.querySelector(".start-screen").style = "display: none";
+                document.querySelector(".before-start").style = "display: none";
+            }
 
             let busy = false;
             window.addEventListener("beforeunload", (event) => {
@@ -76,6 +163,23 @@
                     event.returnValue = false;
                 }
             });
+
+            function updateGamePickerGUI() {
+                document.querySelector("#game-path").innerText = gamePath;
+                document.querySelector(".start-screen > button").disabled = !gameFound;
+            }
+
+            async function chPath() {
+                let { cancelled, filePaths: [newPath] } = await electron.remote.dialog.showOpenDialog({properties:['openDirectory']});
+                if (cancelled) return;
+
+                if (await isOmori(newPath)) {
+                    gamePath = newPath;
+                    gameFound = true;
+                }
+
+                updateGamePickerGUI();
+            }
 
             (async function run() {
                 let status = document.querySelector(".getting-ready > h1");
@@ -127,7 +231,24 @@
                 });
                 keys = keys.filter( a=> a !== "=BAD=");
                 keys.push(path.join(steamPath, "steamapps"));
-                console.log(keys);
+                
+                for (let a of keys) {
+                    if (fs.existsSync(path.join(a, "appmanifest_1150690.acf"))) {
+                        let manifest = vdf.parse(fs.readFileSync(path.join(a, "appmanifest_1150690.acf"), "utf-8"));
+                        if (manifest.AppState && manifest.AppState.installdir) {
+                            if (await isOmori(path.join(a, "common", manifest.AppState.installdir))) {
+                                gameFound = true;
+                                gamePath = path.join(a, "common", manifest.AppState.installdir);
+                            }
+                        }
+                    }
+                }
+
+                document.querySelector(".getting-ready").style = "display: none";
+                document.querySelector(".start-screen").style = "";
+                document.querySelector("#game-path").innerText = gamePath;
+
+                updateGamePickerGUI();
             })();
         </script>
     </body>
