@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>OmoTool</title>
+        <link rel="Stylesheet" href="roboto.css">
+        <style>
+            body {
+                margin: 0;
+                overflow: hidden;
+                color: white;
+                font-family: Roboto;
+            }
+            .getting-ready {
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                
+            }
+            .spinner {
+                width: 140px;
+                text-align: center;
+            }
+
+            .spinner > div {
+                width: 18px;
+                height: 18px;
+                background-color: #fff;
+
+                border-radius: 100%;
+                display: inline-block;
+                animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+            }
+
+            .spinner .bounce1 {
+                animation-delay: -0.32s;
+            }
+
+            .spinner .bounce2 {
+                animation-delay: -0.16s;
+            }
+            @keyframes sk-bouncedelay {
+                0%, 80%, 100% { 
+                    -webkit-transform: scale(0);
+                    transform: scale(0);
+                } 40% { 
+                    -webkit-transform: scale(1.0);
+                    transform: scale(1.0);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="getting-ready">
+            <h1>Geting ready...</h1>
+            <div class="spinner">
+                <div class="bounce1"></div>
+                <div class="bounce2"></div>
+                <div class="bounce3"></div>
+            </div>
+        </div>
+        <script>
+            const rafResolve = () => new Promise(resolve => requestAnimationFrame(resolve));
+            const windows = require('windows');
+            const path = require('path');
+            const fs = require('fs');
+            const vdf = require('@node-steam/vdf');
+            const binaryVdf = require('binary-vdf');
+
+            let busy = false;
+            window.addEventListener("beforeunload", (event) => {
+                if (busy) {
+                    event.returnValue = false;
+                }
+            });
+
+            (async function run() {
+                let status = document.querySelector(".getting-ready > h1");
+                // find steam
+                status.innerText = "Finding steam...";
+
+                let steamPath;
+                let omoriMeta;
+
+                await rafResolve();
+                try {
+                    let reg = windows.registry("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Valve\\Steam").InstallPath.value;
+                    status.innerText = reg;
+
+                    status.innerText = "Finding OMORI metadata...";
+                    await rafResolve();
+
+                    let appInfoBitstream = fs.createReadStream(path.join(reg, "appcache", "appinfo.vdf"));
+
+                    let data = await binaryVdf.readAppInfo(appInfoBitstream);
+                    data = data.filter(a => a.id === 1150690);
+                    if (data.length < 1) {
+                        throw new Error("OMORI not found");
+                    }
+
+                    omoriMeta = data[0];
+                    steamPath = reg;
+                } catch(e) {
+                    console.log(e);
+                    status.innerText = "Unable to find steam/OMORI. Please install Steam and with it OMORI.";
+                    return;
+                }
+
+                status.innerText = "Looking for OMORI...";
+                await rafResolve();
+
+                let libraryFolders = vdf.parse(fs.readFileSync(path.join(steamPath, "steamapps", "libraryfolders.vdf"), "utf-8")).libraryfolders;
+                let keys = Object.keys(libraryFolders).filter( a => !Number.isNaN(parseInt(a)));
+                keys = keys.map( a => libraryFolders[a] );
+                keys = keys.map( a => {
+                    if (typeof a === "string") return path.join(a, "steamapps");
+                    else {
+                        if (a.path && a.mounted == "1") {
+                            return path.join(a.path, "steamapps");
+                        } else {
+                            return "=BAD=";
+                        }
+                    }
+                });
+                keys = keys.filter( a=> a !== "=BAD=");
+                keys.push(path.join(steamPath, "steamapps"));
+                console.log(keys);
+            })();
+        </script>
+    </body>
+</html>

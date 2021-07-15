@@ -1,0 +1,16 @@
+{
+  "name": "OmoTool",
+  "version": "1.0.0",
+  "description": "A tool to automate modifying OMORI",
+  "main": "index.js",
+  "repository": "git@github.com:rphsoftware/OmoTool.git",
+  "author": "Rph <rphsoftware@gmail.com>",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "@node-steam/vdf": "^2.2.0",
+    "binary-vdf": "^0.1.0",
+    "electron": "^13.1.6",
+    "windows": "^0.0.9"
+  }
+}
