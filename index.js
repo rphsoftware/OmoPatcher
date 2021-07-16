@@ -7,17 +7,17 @@ function startApp() {
         resizable: true,
         backgroundColor: "#222",
         webPreferences: {
-            devTools: true,
+            devTools: false,
             nodeIntegration: true,
             contextIsolation: false,
             enableRemoteModule: true
         }
     });
-    const devtools = new BrowserWindow()
+ //   const devtools = new BrowserWindow()
 
     win.loadFile("index.html");
-    win.webContents.setDevToolsWebContents(devtools.webContents)
-    win.webContents.openDevTools({ mode: 'detach' })
+   // win.webContents.setDevToolsWebContents(devtools.webContents)
+   // win.webContents.openDevTools({ mode: 'detach' })
 }
 
 (async function chooch() {

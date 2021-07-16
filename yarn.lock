@@ -169,10 +169,10 @@ duplexer3@^0.1.4:
   resolved "https://registry.yarnpkg.com/duplexer3/-/duplexer3-0.1.4.tgz#ee01dd1cac0ed3cbc7fdbea37dc0a8f1ce002ce2"
   integrity sha1-7gHdHKwO08vH/b6jfcCo8c4ALOI=
 
-electron@^13.1.6:
-  version "13.1.6"
-  resolved "https://registry.yarnpkg.com/electron/-/electron-13.1.6.tgz#6ecaf969255d62ce82cc0b5c948bf26e7dfb489b"
-  integrity sha512-XiB55/JTaQpDFQrD9pulYnOGwaWeMyRIub5ispvoE2bWBvM5zVMLptwMLb0m3KTMrfSkzhedZvOu7fwYvR7L7Q==
+electron@^13.1.7:
+  version "13.1.7"
+  resolved "https://registry.yarnpkg.com/electron/-/electron-13.1.7.tgz#7e17f5c93a8d182a2a486884fed3dc34ab101be9"
+  integrity sha512-sVfpP/0s6a82FK32LMuEe9L+aWZw15u3uYn9xUJArPjy4OZHteE6yM5871YCNXNiDnoCLQ5eqQWipiVgHsf8nQ==
   dependencies:
     "@electron/get" "^1.0.1"
     "@types/node" "^14.6.2"
@@ -441,6 +441,11 @@ ms@2.1.2:
   version "2.1.2"
   resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.2.tgz#d09d1f357b443f493382a8eb3ccd183872ae6009"
   integrity sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w==
+
+node-stream-zip@^1.13.6:
+  version "1.13.6"
+  resolved "https://registry.yarnpkg.com/node-stream-zip/-/node-stream-zip-1.13.6.tgz#8abdfdbc4bc96ee11e9438d94cc8c93c7df28959"
+  integrity sha512-c7tRSVkLNOHvasWgmZ2d86cDgTWEygnkuuHNOY9c0mR3yLZtQTTrGvMaJ/fPs6+LOJn3240y30l5sjLaXFtcvw==
 
 normalize-url@^4.1.0:
   version "4.5.1"

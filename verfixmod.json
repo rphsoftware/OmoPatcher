@@ -1,0 +1,15 @@
+{
+    "id": "version_fix",
+    "name": "NW 0.54.1 compat",
+    "description": "Makes the game work on NW 0.54.1",
+    "version": "1.0.0",
+    "files": {
+      "plugins": ["version_fix.js"]
+    },
+    "_flags":[
+        "prevent_disable",
+        "randomize_plugin_name"
+    ],
+    "manifestVersion": 1
+  }
+  

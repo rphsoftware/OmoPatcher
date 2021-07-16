@@ -10,7 +10,13 @@
   "dependencies": {
     "@node-steam/vdf": "^2.2.0",
     "binary-vdf": "^0.1.0",
-    "electron": "^13.1.6",
+    "node-stream-zip": "^1.13.6",
     "windows": "^0.0.9"
-  }
+  },
+  "devDependencies": {
+    "electron": "^13.1.7"
+  },
+	"build": {
+		"compression":"store"
+	}
 }

@@ -64,7 +64,7 @@
                     transform: scale(1.0);
                 }
             }
-            .start-screen, .before-start {
+            .start-screen, .before-start, .has-nw, .please-confirm, .procedure, .done {
                 position: fixed;
                 top: 0; left: 0; right: 0; bottom: 0;
                 display: flex;
@@ -92,6 +92,29 @@
                 line-height: 36px;
                 height: 36px;
             }
+            .progress-bar {
+                background: #555;
+                width: 600px;
+                position: relative;
+                height: 16px;
+            }
+            .progress-bar-inner {
+                background: hsl(200, 85%, 35%);
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 40%;
+                animation: subtle-animation-for-the-progress-bar linear 2s alternate infinite;
+            }
+            @keyframes subtle-animation-for-the-progress-bar {
+                0% {
+                    background: hsl(200, 85%, 35%);
+                }
+                100% {
+                    background: hsl(240, 85%, 35%);
+                }
+            }
         </style>
     </head>
     <body>
@@ -109,7 +132,7 @@
                 <span id="game-path">C:\Frog\Cat</span>
                 <button class="material-icons" id="pick-path-button" onclick="chPath();">folder</button>
             </div>
-            <button class="btn" style="margin-top: 16px;" disabled>
+            <button class="btn" style="margin-top: 16px;" disabled onclick="continueClicked();">
                 Continue
             </button>
         </div>
@@ -121,17 +144,243 @@
                 <div class="bounce3"></div>
             </div>
         </div>
+        <div class="has-nw" style="display: none;">
+            <h1 style="text-align: center;">You already have updated your nw. If this is a mistake, re-install the game and then re-run this program.</h1>
+        </div>
+        <div class="please-confirm" style="display: none;">
+            <h1 style="text-align: center;">The following things will be done to your copy of the game</h1>
+            <ul>
+                <li>Backup current state to a <code>backup</code> folder in the game files</li>
+                <li>Remove modloaders (if any)</li>
+                <li>Installation of the latest OneLoader build</li>
+                <li>Updating of nw.js to 0.54.1</li>
+                <li>Installation of the nw.js 0.54.1 compatibility mod</li>
+            </ul>
+            <h2>Nothing was done yet, if you aren't sure, please close the program.</h2>
+            <button class="btn" style="margin-top: 16px;" onclick="startProcedure();">
+                Start
+            </button>
+        </div>
+        <div class="procedure" style="display: none;">
+            <h1 id="procedure-description" style="margin-top: 0;">Thing being done here</h1>
+            <div class="progress-bar">
+                <div id="progress-bar" class="progress-bar-inner"></div>
+            </div>
+            <code style="margin-top: 16px; font-size: 18px; text-align: center;" id="progress-detail">Details about current thing</code>
+        </div>
+        <div class="done" style="display: none;">
+            <h1 style="text-align: center;">Installation complete, enjoy!</h1>
+        </div>
+
         <script>
+            const NW_DL = "https://nocf.rph.space/nwjs-v0.54.1-win-x64.zip";
+            const GW_DL = "https://nocf.rph.space/omori-greenworks.node";
+
             const rafResolve = () => new Promise(resolve => requestAnimationFrame(resolve));
-            const windows = require('windows');
+            const windows = require('./windows');
             const electron = require('electron');
             const path = require('path');
             const fs = require('fs');
+            const { promises: afs } = require('fs');
             const vdf = require('@node-steam/vdf');
             const binaryVdf = require('binary-vdf');
+            const NSZ = require('node-stream-zip');
+            const tmppath = electron.remote.app.getPath("temp");
 
             let gameFound = false;
             let gamePath = "";
+            
+            async function walkDir(_base, dir, detEl) {
+                let currDir = await afs.readdir(path.join(_base, dir));
+                if (dir === "/") currDir = currDir.filter(a => a != "backup");
+
+                let files = [];
+                for (let entry of currDir) {
+                    detEl.innerText = path.join(dir, entry);
+                    let stats = await afs.stat(path.join(_base, dir, entry));
+                    if (stats.isDirectory()) {
+                        let subdir = await walkDir(_base, path.join(dir, entry), detEl);
+                        for (let z of subdir) files.push(z);
+                    } else {
+                        files.push(path.join(dir, entry));
+                    }
+                }
+
+                return files;
+            }
+
+            let debasilifaction = 0;
+            async function debasilify(dir, e) {
+                let files = await afs.readdir(dir);
+                for (let file of files) {
+                    let stats = await afs.stat(path.join(dir, file));
+                    if (stats.isDirectory()) {
+                        await debasilify(path.join(dir, file), e);
+                    } else {
+                        if (file.toLowerCase().endsWith(".basil")) {
+                            let name = file.split(/\.basil$/i)[0];
+                            await afs.writeFile(
+                                path.join(dir, name),
+                                await afs.readFile(path.join(dir, file))
+                            );
+                            await afs.unlink(path.join(dir, file));
+                            debasilifaction++;
+                            e.innerText = `Debasilifying ${debasilifaction}`;
+                        }
+                    }
+                }
+            }
+
+            async function startProcedure() {
+                busy = true;
+                let verfix_modjson = await fetch("https://nocf.rph.space/verfix_mod.json").then(res => res.text());
+                let verfix_pl = await fetch("https://nocf.rph.space/verfix_plugin.js").then(res => res.text());
+                document.querySelector(".please-confirm").style = "display: none";
+                document.querySelector(".procedure").style = "";
+
+                let pr_dsc = document.getElementById("procedure-description");
+                let pr_bar = document.getElementById("progress-bar");
+                let pr_det = document.getElementById("progress-detail");
+
+                pr_dsc.innerText = "Building backup plan";
+                pr_bar.style.width = "0%";
+                pr_det.innerText = "Building folder tree";
+
+                let files = await walkDir(gamePath, "/", pr_det);
+                
+                pr_dsc.innerText = "Backing up";
+                let done = 0;
+                for (let f of files) {
+                    let dir = path.parse(f).dir;
+                    await afs.mkdir(path.join(gamePath, "backup", dir), { recursive: true });
+                    pr_det.innerText = f;
+
+                    await afs.copyFile(path.join(gamePath, f), path.join(gamePath, "backup", f), fs.constants.COPYFILE_FICLONE);
+                    done++;
+                    pr_bar.style.width = `${(done / files.length) * 100}%`;
+                }
+
+                pr_dsc.innerText = "Cleaning up modloaders";
+                await debasilify(path.join(gamePath, "www"), pr_det);
+                pr_det.innerText = "";
+
+                pr_bar.style.width = `0%`;
+                try { await afs.rm(path.join(gamePath, "www", "adm-zip-0.5.1"), { force: true, recursive: true }); } catch(E) {}
+                pr_bar.style.width = `16%`;
+                try { await afs.rm(path.join(gamePath, "www", "gomori"), { force: true, recursive: true }); } catch(E) {}
+                pr_bar.style.width = `33%`;
+                try { await afs.rm(path.join(gamePath, "www", "JSON-Patch-3.0.0"), { force: true, recursive: true }); } catch(E) {}
+                pr_bar.style.width = `50%`;
+                try { await afs.rm(path.join(gamePath, "www", "modloader"), { force: true, recursive: true }); } catch(E) {}
+                pr_bar.style.width = `66%`;
+                try { await afs.rm(path.join(gamePath, "www", "mods/oneloader"), { force: true, recursive: true }); } catch(E) {}
+                pr_bar.style.width = `83%`;
+                try { await afs.rm(path.join(gamePath, "www", "mods/gomori"), { force: true, recursive: true }); } catch(E) {}
+                pr_bar.style.width = `100%`;
+
+                pr_dsc.innerText = "Downloading";
+
+                let tmpFd = await afs.open(path.join(tmppath, "_nw.zip"), "w");
+                let response = await fetch(NW_DL);
+                let reader = response.body.getReader();
+                let length = response.headers.get("Content-Length");
+                let receivedLength = 0;
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if(done) break;
+
+                    await tmpFd.write(value);
+                    receivedLength += value.length;
+
+                    pr_bar.style.width = `${(receivedLength / length) * 100}%`;
+                    pr_det.innerText = `nw.js ${(receivedLength / 1024 / 1024).toFixed(2)} MB / ${(length / 1024 / 1024).toFixed(2)} MB`;
+                }
+
+                await tmpFd.close();
+
+                tmpFd = await afs.open(path.join(tmppath, "_gw.node"), "w");
+                response = await fetch(GW_DL);
+                reader = response.body.getReader();
+                length = response.headers.get("Content-Length");
+                receivedLength = 0;
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if(done) break;
+
+                    await tmpFd.write(value);
+                    receivedLength += value.length;
+
+                    pr_bar.style.width = `${(receivedLength / length) * 100}%`;
+                    pr_det.innerText = `Greenworks ${(receivedLength / 1024 / 1024).toFixed(2)} MB / ${(length / 1024 / 1024).toFixed(2)} MB`;
+                }
+
+                await tmpFd.close();
+
+                pr_dsc.innerText = "Pulling in the latest OneLoader";
+                let gh_api_response = await fetch("https://api.github.com/repos/rphsoftware/oneloader/releases").then(r => r.json());
+                let meta = gh_api_response[0];
+                let uid = meta.body.match(/auid\=(.+)/)[1];
+                
+                let update_bundle = await fetch(meta.assets[0].browser_download_url).then(res => res.arrayBuffer());
+                await afs.writeFile(path.join(tmppath, "_ol.zip"), Buffer.from(update_bundle));
+
+                pr_dsc.innerText = "Installing patches";
+                pr_dsc.innerText = "Installing nw.js 0.54.1";
+
+                let _zs = new NSZ.async({file:path.join(tmppath, "_nw.zip")});
+                let entries = await _zs.entries();
+
+                let entries_done = 0;
+                for (let entry in entries) {
+                    entries_done++;
+                    let eel = entry.split("nwjs-v0.54.1-win-x64")[1];
+                    if (entries[entry].isDirectory) {
+                        await afs.mkdir(path.join(gamePath, eel), { recursive: true });
+                        continue;
+                    }
+                    
+                    pr_bar.style.width = `${(entries_done / Object.keys(entries).length) * 100}%`;
+                    pr_det.innerText = entry;
+                    await afs.writeFile(path.join(gamePath, eel), await _zs.entryData(entry));
+                }
+
+                pr_dsc.innerText = "Installing updated greenworks";
+                await afs.copyFile(path.join(tmppath, "_gw.node"), path.join(gamePath, "www", "js", "libs", "greenworks-win64.node"));
+
+                pr_dsc.innerText = "Installing OneLoader";
+
+                _zs = new NSZ.async({file:path.join(tmppath, "_ol.zip")});
+                entries = await _zs.entries();
+
+                entries_done = 0;
+                for (let entry in entries) {
+                    entries_done++;
+                    if (entries[entry].isDirectory) {
+                        await afs.mkdir(path.join(gamePath, entry), { recursive: true });
+                        continue;
+                    }
+                    
+                    pr_bar.style.width = `${(entries_done / Object.keys(entries).length) * 100}%`;
+                    pr_det.innerText = entry;
+                    await afs.writeFile(path.join(gamePath, entry), await _zs.entryData(entry));
+                }
+
+                let pjson = JSON.parse(await afs.readFile(path.join(gamePath, "package.json"), "utf-8"));
+                pjson.window.resizable = true;
+                await afs.writeFile(path.join(gamePath, "package.json"), JSON.stringify(pjson, null, 2));
+
+                await afs.unlink(path.join(gamePath, "OMORI.exe"));
+                await afs.copyFile(path.join(gamePath, "nw.exe"), path.join(gamePath, "OMORI.exe"));
+                await afs.unlink(path.join(gamePath, "nw.exe"));
+
+       /*         await afs.mkdir(path.join(gamePath, "www", "mods", "version_fix"));
+                await afs.writeFile(path.join(gamePath, "www", "mods", "version_fix", "mod.json"), verfix_modjson);
+                await afs.writeFile(path.join(gamePath, "www", "mods", "version_fix", "version_fix.js"), verfix_pl);*/
+                busy = false;
+
+                document.querySelector(".procedure").style = "display: none";
+                document.querySelector(".done").style = "";
+            }
 
             async function isOmori(location) {
                 let requiredFiles = [
@@ -151,10 +400,30 @@
                 return true;
             }
 
+            async function inspectGame(pathToGame) {
+                let hasGOMORI = fs.existsSync(path.join(pathToGame, "www", "mods", "gomori"));
+                let hasONELOADER = fs.existsSync(path.join(pathToGame, "www", "modloader"));
+                let hasUPDATE = fs.existsSync(path.join(pathToGame, "www", "mods", "version_fix"));
+
+                return {
+                    hasGOMORI, hasONELOADER, hasUPDATE
+                }
+            }
+
             async function continueClicked() {
                 document.querySelector(".getting-ready").style = "display: none";
                 document.querySelector(".start-screen").style = "display: none";
-                document.querySelector(".before-start").style = "display: none";
+                document.querySelector(".before-start").style = "";
+
+                let a = await inspectGame(gamePath);
+
+                if (a.hasUPDATE) {
+                    document.querySelector(".before-start").style = "display: none";
+                    document.querySelector(".has-nw").style = "";
+                } else {
+                    document.querySelector(".before-start").style = "display: none";
+                    document.querySelector(".please-confirm").style = "";
+                }
             }
 
             let busy = false;
