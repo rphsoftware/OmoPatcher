@@ -485,32 +485,43 @@
                 status.innerText = "Looking for OMORI...";
                 await rafResolve();
 
-                let libraryFolders = vdf.parse(fs.readFileSync(path.join(steamPath, "steamapps", "libraryfolders.vdf"), "utf-8")).libraryfolders;
-                let keys = Object.keys(libraryFolders).filter( a => !Number.isNaN(parseInt(a)));
-                keys = keys.map( a => libraryFolders[a] );
-                keys = keys.map( a => {
-                    if (typeof a === "string") return path.join(a, "steamapps");
-                    else {
-                        if (a.path && a.mounted == "1") {
-                            return path.join(a.path, "steamapps");
-                        } else {
-                            return "=BAD=";
+                let keys = [];
+                if (fs.existsSync(path.join(steamPath, "steamapps", "libraryfolders.vdf"))) {
+
+                    try {
+                        let libraryFolders = vdf.parse(fs.readFileSync(path.join(steamPath, "steamapps", "libraryfolders.vdf"), "utf-8")).libraryfolders;
+                        if (libraryFolders ) {
+                            keys = Object.keys(libraryFolders).filter( a => !Number.isNaN(parseInt(a)));
+                            keys = keys.map( a => libraryFolders[a] );
+                            keys = keys.map( a => {
+                                if (typeof a === "string") return path.join(a, "steamapps");
+                                else {
+                                    if (a.path && a.mounted == "1") {
+                                        return path.join(a.path, "steamapps");
+                                    } else {
+                                        return "=BAD=";
+                                    }
+                                }
+                            });
+                            keys = keys.filter( a=> a !== "=BAD=");
                         }
-                    }
-                });
-                keys = keys.filter( a=> a !== "=BAD=");
-                keys.push(path.join(steamPath, "steamapps"));
+                    } catch(e) {alert(e.stack); }
+                }
                 
+                keys.push(path.join(steamPath, "steamapps"));
+
                 for (let a of keys) {
-                    if (fs.existsSync(path.join(a, "appmanifest_1150690.acf"))) {
-                        let manifest = vdf.parse(fs.readFileSync(path.join(a, "appmanifest_1150690.acf"), "utf-8"));
-                        if (manifest.AppState && manifest.AppState.installdir) {
-                            if (await isOmori(path.join(a, "common", manifest.AppState.installdir))) {
-                                gameFound = true;
-                                gamePath = path.join(a, "common", manifest.AppState.installdir);
+                    try {
+                        if (fs.existsSync(path.join(a, "appmanifest_1150690.acf"))) {
+                            let manifest = vdf.parse(fs.readFileSync(path.join(a, "appmanifest_1150690.acf"), "utf-8"));
+                            if (manifest.AppState && manifest.AppState.installdir) {
+                                if (await isOmori(path.join(a, "common", manifest.AppState.installdir))) {
+                                    gameFound = true;
+                                    gamePath = path.join(a, "common", manifest.AppState.installdir);
+                                }
                             }
                         }
-                    }
+                    } catch(e) {alert(e.stack); }
                 }
 
                 document.querySelector(".getting-ready").style = "display: none";
@@ -518,7 +529,7 @@
                 document.querySelector("#game-path").innerText = gamePath;
 
                 updateGamePickerGUI();
-            })();
+            })().catch(e => {alert(e.stack); });
         </script>
     </body>
 </html>
