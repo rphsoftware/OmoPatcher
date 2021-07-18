@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta charset="UTF-8">
-        <title>OmoTool</title>
+        <title>OmoPatcher</title>
         <link rel="Stylesheet" href="roboto.css">
         <style>
             button.btn {
@@ -112,7 +112,7 @@
                     background: hsl(200, 85%, 35%);
                 }
                 100% {
-                    background: hsl(240, 85%, 35%);
+                    background: hsl(240, 100%, 72%);
                 }
             }
         </style>
@@ -233,8 +233,8 @@
 
             async function startProcedure() {
                 busy = true;
-                let verfix_modjson = await fetch("https://nocf.rph.space/verfix_mod.json").then(res => res.text());
-                let verfix_pl = await fetch("https://nocf.rph.space/verfix_plugin.js").then(res => res.text());
+           //     let verfix_modjson = await fetch("https://nocf.rph.space/verfix_mod.json").then(res => res.text());
+           //     let verfix_pl = await fetch("https://nocf.rph.space/verfix_plugin.js").then(res => res.text());
                 document.querySelector(".please-confirm").style = "display: none";
                 document.querySelector(".procedure").style = "";
 
@@ -367,6 +367,7 @@
 
                 let pjson = JSON.parse(await afs.readFile(path.join(gamePath, "package.json"), "utf-8"));
                 pjson.window.resizable = true;
+                pjson["chromium-args"] = pjson["chromium-args"] + " --user-data-dir=nwprofile";
                 await afs.writeFile(path.join(gamePath, "package.json"), JSON.stringify(pjson, null, 2));
 
                 await afs.unlink(path.join(gamePath, "OMORI.exe"));
